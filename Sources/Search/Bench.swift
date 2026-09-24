@@ -530,6 +530,19 @@ final class Bench {
                 answer(["active": browser.active.map { String($0.id.uuidString.prefix(8)).lowercased() } ?? ""])
             }
 
+        case "release":
+            // Every modifier let go of, as a flagsChanged event through the
+            // app's queue — what ends a ⌘K or ⌥Tab walk. Only on a test run.
+            guard Store.testing else { answer(["error": "release only works on a --test run"]); return }
+            if let cg = CGEvent(keyboardEventSource: nil, virtualKey: 58, keyDown: false) {
+                cg.type = .flagsChanged
+                cg.flags = []
+                if let event = NSEvent(cgEvent: cg) { NSApp.postEvent(event, atStart: false) }
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                answer(["active": browser.active.map { String($0.id.uuidString.prefix(8)).lowercased() } ?? ""])
+            }
+
         case "key":
             // Keys pressed on a tab, as real key events handed to its view —
             // for what the page does with them, and what comes back unused.

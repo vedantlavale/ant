@@ -122,6 +122,10 @@ final class Browser: NSObject, ObservableObject {
     @Published private(set) var summoning = false
     /// True between the first ⌘K and letting go of ⌘.
     var cycling = false
+    /// ⌥Tab's list while ⌥ is held, and where in it the walk is (see
+    /// Switcher.swift). Empty when it isn't up.
+    @Published var switching: [UUID] = []
+    @Published var switchedTo = 0
 
     var active: Tab? { tabs.first { $0.id == activeID } }
     var fieldShowing: Bool { editing || active?.isBlank ?? true }

@@ -13,6 +13,7 @@ in [ROADMAP.md](ROADMAP.md).
 
 ### Added
 
+- ⌥Tab goes back through the tabs you were last on, as ⌘Tab does through apps: hold ⌥ and press Tab to move along the list over the page, ⇧ to go back, and let go to land; esc leaves you where you were. ⌃Tab still walks the row in order.
 - Choose what the window opens with: the last session, as before, a new tab, or a homepage of your own — Settings › Tabs › On launch, and on the welcome's second-to-last page. Pinned tabs are there whichever you choose.
 
 ### Fixed

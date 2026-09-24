@@ -479,6 +479,8 @@ struct ContentView: View {
             }
             .overlay { field }
             .overlay { panels }
+            .overlay { Switcher(browser: browser) }
+            .animation(Motion.quick, value: browser.switching.isEmpty)
             // The field comes on its spring, and goes quickly: once Return
             // is pressed the page is on its way, and the field is not what
             // there is to watch.
@@ -495,6 +497,8 @@ struct ContentView: View {
                 resting?.isHidden = false
                 // Only the window you were in, or every window's video would come.
                 browser.appLeft()
+                // ⌥ may be let go of in the other app; the list isn't left up.
+                browser.cancelSwitch()
             }
             .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { note in
                 if let window, (note.object as? NSWindow) === window { Browser.front = browser }
@@ -757,6 +761,8 @@ struct ContentView: View {
             guard event.type == .keyDown else {
                 // ⌘ let go of ends a ⌘K walk, wherever it stopped.
                 if !event.modifierFlags.contains(.command) { browser.landSummon() }
+                // And ⌥ a ⌥Tab one.
+                if !event.modifierFlags.contains(.option) { browser.landSwitch() }
                 return event
             }
             return take(event) ? nil : event
@@ -804,6 +810,10 @@ struct ContentView: View {
         // Escape puts the page back. On a blank tab there is no page to put
         // back, so it belongs to whatever else wants it.
         if event.keyCode == 53 {
+            if !browser.switching.isEmpty {
+                browser.cancelSwitch()
+                return true
+            }
             if browser.editingTab != nil {
                 browser.cancelTabEdit()
                 return true
@@ -870,6 +880,14 @@ struct ContentView: View {
         //
         // While an address is being typed, the list under the field is what
         // there is to move through, and Return takes whatever the walk landed on.
+        // ⌥Tab goes back through the tabs you were last on, as ⌘Tab does
+        // through apps: held, it walks on; let go of, it lands (see
+        // Switcher.swift). ⌥⇧Tab the other way.
+        if event.keyCode == 48, flags.contains(.option), flags.isDisjoint(with: [.command, .control]) {
+            browser.switchRecent(flags.contains(.shift) ? -1 : 1)
+            return true
+        }
+
         if event.keyCode == 48, !flags.contains(.command), !flags.contains(.option) {
             if flags.contains(.control) {
                 browser.step(flags.contains(.shift) ? -1 : 1)

@@ -703,6 +703,9 @@ final class Browser: NSObject, ObservableObject {
     var pressure: DispatchSourceMemoryPressure?
     /// Downloads still under way. See `keep(_:)`.
     var downloading: [WKDownload] = []
+    /// Where each download was sent, as it was decided — what finished or
+    /// failed is then known by name without relying on WebKit's progress.
+    var destinations: [ObjectIdentifier: URL] = [:]
     /// The Chrome Web Store's pages, told when installs come and go. See StoreRelay.swift.
     var storeWatch: AnyCancellable?
     private var hush: DispatchWorkItem?
@@ -2218,22 +2221,46 @@ extension Browser: WKDownloadDelegate {
             panel.nameFieldStringValue = name
             panel.directoryURL = downloadsFolder
             panel.canCreateDirectories = true
-            guard panel.runModal() == .OK, let url = panel.url else {
-                completionHandler(nil)
-                return
+            // A sheet on the browser's window, answered when it
+            // is answered. Run modally inside WebKit's callback, the panel
+            // came up loose — behind the window, or on another screen — and
+            // a download nobody saw asked about looked like one that never
+            // started.
+            let answered: (NSApplication.ModalResponse) -> Void = { [weak self] response in
+                guard response == .OK, let url = panel.url else {
+                    completionHandler(nil)
+                    return
+                }
+                // "Replace" in the panel is a promise the panel can't keep:
+                // WebKit won't write over a file that is already there, and
+                // the download failed after you had said yes. The old one
+                // goes to the Bin, where it can still be had back.
+                if FileManager.default.fileExists(atPath: url.path) {
+                    try? FileManager.default.trashItem(at: url, resultingItemURL: nil)
+                }
+                self?.destinations[ObjectIdentifier(download)] = url
+                completionHandler(url)
+                self?.announce("Downloading \(url.lastPathComponent)")
             }
-            completionHandler(url)
-            announce("Downloading \(url.lastPathComponent)")
+            if let window = Links.window {
+                NSApp.activate(ignoringOtherApps: true)
+                panel.beginSheetModal(for: window, completionHandler: answered)
+            } else {
+                panel.begin(completionHandler: answered)
+            }
             return
         }
 
-        completionHandler(Browser.free(name, in: downloadsFolder))
+        let url = Browser.free(name, in: downloadsFolder)
+        destinations[ObjectIdentifier(download)] = url
+        completionHandler(url)
         announce("Downloading \(name)")
     }
 
     func downloadDidFinish(_ download: WKDownload) {
         downloading.removeAll { $0 === download }
-        guard let file = download.progress.fileURL else {
+        let chosen = destinations.removeValue(forKey: ObjectIdentifier(download))
+        guard let file = download.progress.fileURL ?? chosen else {
             announce("Download finished")
             return
         }
@@ -2254,7 +2281,20 @@ extension Browser: WKDownloadDelegate {
         resumeData: Data?
     ) {
         downloading.removeAll { $0 === download }
-        announce("Download failed")
+        let chosen = destinations.removeValue(forKey: ObjectIdentifier(download))
+        let why = error as NSError
+        // Said once, where it can be found again: a failure that only
+        // flashed by for a second and a half left nothing to go on.
+        NSLog("Download of %@ to %@ failed: %@ %ld %@",
+              download.originalRequest?.url?.absoluteString ?? "?",
+              chosen?.path ?? "?", why.domain, why.code, why.localizedDescription)
+        guard why.code != NSURLErrorCancelled else { return }
+        let name = chosen?.lastPathComponent ?? "Download"
+        if why.domain == NSCocoaErrorDomain, [NSFileWriteNoPermissionError, NSFileWriteUnknownError].contains(why.code) {
+            announce("\(name) couldn't be saved there")
+        } else {
+            announce("\(name) failed: \(why.localizedDescription)")
+        }
     }
 
     /// WebKit refuses to write over a file that is already there, so the name

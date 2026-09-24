@@ -46,6 +46,16 @@ BUILD="$(date +%Y%m%d%H%M)"
 # older Mac is not handed a build it can't open.
 MINIMUM="14.0"
 
+# SwiftUI's @State is a macro from the macOS 27 SDK on, and its plugin comes
+# with Xcode, not with the Command Line Tools. Without Xcode, build against the
+# newest SDK before that, which the Command Line Tools still carry.
+if [ -z "${SDKROOT:-}" ] && [ "$(xcode-select -p)" = /Library/Developer/CommandLineTools ] \
+   && [ ! -e /Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/libSwiftUIMacros.dylib ]; then
+  for sdk in /Library/Developer/CommandLineTools/SDKs/MacOSX26*.sdk; do
+    [ -d "$sdk" ] && export SDKROOT="$sdk"
+  done
+fi
+
 swift build -c "$CONFIG"
 BINARY=".build/$CONFIG/Search"
 

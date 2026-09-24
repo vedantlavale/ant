@@ -15,6 +15,8 @@ in [ROADMAP.md](ROADMAP.md).
 
 ### Fixed
 
+- Downloads with "Ask where to save" on: the Save panel is a sheet on the browser window instead of a loose panel that could open behind it, and "Replace" really replaces — the old file goes to the Bin, where before WebKit refused to write over it and the download failed. A failed download says why, and a finished one is always listed in Downloads.
+- `./build.sh` builds with only the Command Line Tools installed, on the macOS 26 SDK when the macOS 27 one needs Xcode's SwiftUI macros.
 - The tab bar folded away with ⌘S comes back over the page on a ground of its own, as the column does: the page no longer shows through between the tabs, and its shadow falls along the bar's edge instead of from every title and icon.
 
 ## 1.0.2 — 24 September 2026

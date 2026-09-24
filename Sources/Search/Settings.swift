@@ -254,6 +254,27 @@ struct SettingsPanel: View {
 
     private var tabs: some View {
         Card {
+            Line("On launch", launchDetail) {
+                Segmented(options: Launch.allCases.map { ($0, $0.title) }, selection: $prefs.onLaunch)
+            }
+            if prefs.onLaunch == .home {
+                ZStack(alignment: .leading) {
+                    if prefs.homepage.isEmpty {
+                        Text("https://example.com")
+                            .foregroundStyle(Palette.muted.opacity(0.8))
+                    }
+                    TextField("", text: $prefs.homepage)
+                        .textFieldStyle(.plain)
+                        .foregroundStyle(Palette.ink)
+                }
+                .font(.system(size: 12.5))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 7)
+                .background(Palette.wash, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                .padding(.horizontal, 14)
+                .padding(.bottom, 11)
+            }
+            Rule()
             Line("Tabs in a sidebar", "Down the left instead of across the top. Pull its edge to make it wider; double-click the edge to reset.") {
                 Switch(on: Binding(
                     get: { prefs.sidebar },
@@ -286,6 +307,14 @@ struct SettingsPanel: View {
             Line("Spaces", "Separate sets of tabs, signed in where the others are or starting afresh, switched with ⌃1–⌃9, two fingers sideways over the column, or the space's icon. Mission Control's own ⌃1–⌃9, if you turned them on, take those keys first.") {
                 Switch(on: $prefs.usesSpaces)
             }
+        }
+    }
+
+    private var launchDetail: String {
+        switch prefs.onLaunch {
+        case .restore: return "The tabs you had open when you quit, each loading when you look at it"
+        case .blank: return "Your pinned tabs and a new tab; the rest stay in the history"
+        case .home: return "Your pinned tabs and this page"
         }
     }
 

@@ -829,10 +829,38 @@ final class Browser: NSObject, ObservableObject {
         if prefs.usesSpaces { preloadSpaces() }
     }
 
+    /// Spaces whose row has been read once in this run. The first read is the
+    /// launch, and the only one "On launch" has a say in.
+    private var launched: Set<UUID> = []
+
+    /// A space's row as this launch opens it (Settings › Tabs › On launch):
+    /// all of it, or its pinned tabs with a new tab or the homepage in front.
+    /// Nothing is written: until a tab changes, yesterday's file stands.
+    private func opening(_ space: UUID) -> (shape: Session.Shape, blank: Bool) {
+        var saved = Session.read(space: space)
+        guard launched.insert(space).inserted, prefs.onLaunch != .restore else { return (saved, false) }
+        saved.tabs = saved.tabs.filter { $0.pin != nil }
+        if prefs.onLaunch == .home, let home = Address.url(from: prefs.homepage) {
+            saved.tabs.append(Session.Entry(url: home.absoluteString, title: ""))
+            saved.active = saved.tabs.count - 1
+            return (saved, false)
+        }
+        return (saved, true)
+    }
+
     /// The row of tabs the space on screen had last time, or one empty tab.
     func restoreSession() {
-        let saved = Session.read(space: spaceID)
-        guard !saved.tabs.isEmpty else {
+        let (saved, blank) = opening(spaceID)
+        guard !saved.tabs.isEmpty, !blank else {
+            // Pinned tabs first, when a clean start keeps them.
+            for entry in saved.tabs {
+                guard let url = URL(string: entry.url) else { continue }
+                let tab = Tab()
+                prepare(tab)
+                tab.restore(url: url, title: entry.title, name: entry.name)
+                tab.pin = entry.pin
+                tabs.append(tab)
+            }
             // A blank tab costs nothing until it is asked for its page. Its
             // web view — and with it WebKit's helper processes — is built a
             // moment after the window is up, so that the first address typed
@@ -1432,7 +1460,7 @@ final class Browser: NSObject, ObservableObject {
     /// on screen: tabs with an address and no page yet, which cost next to
     /// nothing until one is looked at (see Spaces.swift).
     func loadRow(_ space: UUID) -> Parked {
-        let saved = Session.read(space: space)
+        let (saved, blank) = opening(space)
         var row: [Tab] = []
         for entry in saved.tabs {
             guard let url = URL(string: entry.url) else { continue }
@@ -1441,6 +1469,12 @@ final class Browser: NSObject, ObservableObject {
             tab.restore(url: url, title: entry.title, name: entry.name)
             tab.pin = entry.pin
             row.append(tab)
+        }
+        if blank {
+            let tab = Tab(configuration: Web.configuration(space: space))
+            prepare(tab)
+            row.append(tab)
+            return Parked(tabs: row, active: tab.id)
         }
         let active = row.indices.contains(saved.active) ? row[saved.active].id : row.first?.id
         return Parked(tabs: row, active: active)

@@ -23,6 +23,22 @@ enum Glyph: String, CaseIterable, Identifiable {
     }
 }
 
+/// What the window opens with: yesterday's tabs, or a clean start. Pinned
+/// tabs are there either way — pinning is how a tab says it stays.
+enum Launch: String, CaseIterable, Identifiable {
+    case restore, blank, home
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .restore: return "Last session"
+        case .blank: return "New tab"
+        case .home: return "Homepage"
+        }
+    }
+}
+
 @MainActor
 final class Preferences: ObservableObject {
     private let store = Store.settings
@@ -108,6 +124,13 @@ final class Preferences: ObservableObject {
     }
     @Published var downloads: URL {
         didSet { store.set(downloads.path, forKey: "downloads") }
+    }
+    @Published var onLaunch: Launch {
+        didSet { store.set(onLaunch.rawValue, forKey: "launch") }
+    }
+    /// The page "Homepage" opens, as typed: an address, or words to search.
+    @Published var homepage: String {
+        didSet { store.set(homepage, forKey: "launch.home") }
     }
     @Published var asksWhereToSave: Bool {
         didSet { store.set(asksWhereToSave, forKey: "downloads.ask") }
@@ -247,6 +270,8 @@ final class Preferences: ObservableObject {
             ? testDownloads
             : (store.string(forKey: "downloads")).map { URL(fileURLWithPath: $0) }
                 ?? FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask)[0]
+        onLaunch = store.string(forKey: "launch").flatMap(Launch.init) ?? .restore
+        homepage = store.string(forKey: "launch.home") ?? ""
         asksWhereToSave = store.bool(forKey: "downloads.ask")
         savesPasswords = store.object(forKey: "passwords.save") as? Bool ?? true
         fillsPasswords = store.object(forKey: "passwords.fill") as? Bool ?? true

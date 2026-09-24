@@ -135,6 +135,22 @@ struct WelcomePanel: View {
                     .foregroundStyle(Palette.muted)
                 Segmented(options: Glyph.allCases.map { ($0, $0.title) }, selection: $prefs.glyph)
             }
+            HStack(spacing: 12) {
+                Text("Opens with")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Palette.muted)
+                Segmented(options: Launch.allCases.map { ($0, $0.title) }, selection: $prefs.onLaunch)
+            }
+            if prefs.onLaunch == .home {
+                TextField("https://example.com", text: $prefs.homepage)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 13))
+                    .foregroundStyle(Palette.ink)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 7)
+                    .background(Palette.wash, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                    .frame(maxWidth: 320)
+            }
         }
     }
 

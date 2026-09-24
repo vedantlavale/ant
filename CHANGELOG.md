@@ -13,6 +13,8 @@ in [ROADMAP.md](ROADMAP.md).
 
 ### Added
 
+- Choose what the window opens with: the last session, as before, a new tab, or a homepage of your own — Settings › Tabs › On launch, and on the welcome's second-to-last page. Pinned tabs are there whichever you choose.
+
 ### Fixed
 
 - Downloads with "Ask where to save" on: the Save panel is a sheet on the browser window instead of a loose panel that could open behind it, and "Replace" really replaces — the old file goes to the Bin, where before WebKit refused to write over it and the download failed. A failed download says why, and a finished one is always listed in Downloads.

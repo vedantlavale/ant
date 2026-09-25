@@ -91,9 +91,20 @@ enum Store {
                 .map { support.appendingPathComponent($0, isDirectory: true) }
                 .first { files.fileExists(atPath: $0.path) }
             if !files.fileExists(atPath: home.path), let before {
-                try? files.copyItem(at: before, to: home)
-                // Search's own socket for scripts is no use to Ant.
-                try? files.removeItem(at: home.appendingPathComponent("bench.sock"))
+                // Into a folder beside it first, and only then under Ant's
+                // name: a copy that failed halfway would otherwise stand as
+                // Ant's folder, and the next launch would never try again.
+                let partial = support.appendingPathComponent("Ant.partial", isDirectory: true)
+                try? files.removeItem(at: partial)
+                do {
+                    try files.copyItem(at: before, to: partial)
+                    // Search's own socket for scripts is no use to Ant.
+                    try? files.removeItem(at: partial.appendingPathComponent("bench.sock"))
+                    try files.moveItem(at: partial, to: home)
+                } catch {
+                    NSLog("Ant: couldn't bring %@ across: %@", before.path, error.localizedDescription)
+                    try? files.removeItem(at: partial)
+                }
             }
         }
         return home

@@ -73,7 +73,7 @@ So anyone can read exactly what a browser handling their passwords and history i
 ### Building it
 
 - macOS 14 or later, Xcode 16 / Swift 6 toolchain
-- `swift build` — runs the app straight from the SwiftPM binary
+- `swift build` — runs the app straight from the SwiftPM binary. With only the Command Line Tools installed (no Xcode), the macOS 27 SDK lacks SwiftUI's macro plugin: `SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX26.sdk swift build`, or use `./build.sh`, which does that for you
 - `./build.sh` — assembles a real, double-clickable `Ant.app` in `build/`, ad-hoc signed so it runs on your own Mac
 
 A build you make yourself won't be notarized unless you have a Developer ID of your own, so the first launch needs a right-click → Open (or an allow in System Settings → Privacy & Security). That's expected — it's the same thing that happens with any app that isn't from the App Store or a notarized DMG. The keychain knows an app by its signature, and an ad-hoc one changes with every build — set `ANT_SIGN_IDENTITY` to a code-signing identity of your own (even a self-signed one from Keychain Access) and saved passwords stop asking for access after each rebuild.

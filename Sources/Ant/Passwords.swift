@@ -72,6 +72,20 @@ struct PasswordsPanel: View {
                         }
                         .disabled(importing != nil)
                     }
+                    // The browser Ant is made from, if it was used on this Mac.
+                    if Vault.inSearch > 0 {
+                        Pill("Search") {
+                            importing = "Search"
+                            DispatchQueue.global(qos: .userInitiated).async {
+                                let found = Vault.fromSearch()
+                                DispatchQueue.main.async {
+                                    importing = nil
+                                    browser.took(.success(Chromium.Found(logins: found, never: [])), named: "Search")
+                                }
+                            }
+                        }
+                        .disabled(importing != nil)
+                    }
                     Pill("CSV file…") { browser.importPasswords() }
                         .disabled(importing != nil)
                     Spacer(minLength: 0)
@@ -86,7 +100,7 @@ struct PasswordsPanel: View {
                             .foregroundStyle(Palette.muted)
                     }
                 }
-                Text("macOS asks once for that browser's keychain key. Nothing is changed there; everything lands in your own keychain, under Search.")
+                Text("macOS asks once for that browser's keychain key. Nothing is changed there; everything lands in your own keychain, under Ant. From Search, macOS asks once for each password.")
                     .font(.system(size: 11.5))
                     .foregroundStyle(Palette.muted)
                     .fixedSize(horizontal: false, vertical: true)

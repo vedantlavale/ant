@@ -155,7 +155,7 @@ struct SettingsPanel: View {
         Card {
             Line(
                 "Open links from other apps",
-                isDefault ? "Search is the default browser on this Mac" : "Mail, Slack and the rest still send links elsewhere"
+                isDefault ? "Ant is the default browser on this Mac" : "Mail, Slack and the rest still send links elsewhere"
             ) {
                 if isDefault {
                     Image(systemName: "checkmark")
@@ -236,7 +236,7 @@ struct SettingsPanel: View {
                 Switch(on: $prefs.floatsAway)
             }
             Rule()
-            Line("Let a script drive Search", "A local socket for testing. Its tabs open beside yours with a flask on them and never take over — see ./bench") {
+            Line("Let a script drive Ant", "A local socket for testing. Its tabs open beside yours with a flask on them and never take over — see ./bench") {
                 Switch(on: $prefs.bench)
             }
         }
@@ -323,7 +323,7 @@ struct SettingsPanel: View {
     /// Says so when a password manager extension has taken the saving over.
     private var savingDetail: String {
         if #available(macOS 15.4, *), let name = Extensions.shared.passwordSavingTakenBy {
-            return "\(name) does the saving — it asked Search not to offer"
+            return "\(name) does the saving — it asked Ant not to offer"
         }
         return "Asked once per site, never again for a site you refuse"
     }
@@ -406,7 +406,7 @@ struct SettingsPanel: View {
                 }
                 if let trouble = shield.trouble {
                     Rule()
-                    Line(trouble, "Nothing is being blocked until this clears — try again, or restart Search") {
+                    Line(trouble, "Nothing is being blocked until this clears — try again, or restart Ant") {
                         Pill("Try again") { shield.compile() }
                     }
                 }
@@ -449,14 +449,14 @@ struct SettingsPanel: View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(spacing: 14) {
                 Logomark()
-                    .fill(Palette.ink, style: FillStyle(eoFill: true))
+                    .fill(Palette.ink)
                     .aspectRatio(Logomark.canvas.width / Logomark.canvas.height, contentMode: .fit)
                     .frame(height: 34)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Search")
+                    Text("Ant")
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(Palette.ink)
-                    Text("by Office Commun · version \(Updater.version)")
+                    Text("by Vedant · version \(Updater.version)")
                         .font(.system(size: 12))
                         .foregroundStyle(Palette.muted)
                 }
@@ -480,6 +480,8 @@ struct SettingsPanel: View {
                 Rule()
                 Shortcut("⇧⌘V", "Paste and go")
                 Rule()
+                Shortcut("⌥⇥", "The tab you were last on")
+                Rule()
                 Shortcut("⌃⇥  ⌘1–9", "Next tab, a tab by its place")
                 Rule()
                 Shortcut("⇧⌘S", "Tabs in a sidebar")
@@ -500,21 +502,23 @@ struct SettingsPanel: View {
     private var versionTitle: String {
         switch updater.stage {
         case .none: return "Updates"
-        case .fetching(let next): return "Search \(next.version) is downloading…"
-        case .ready(let next): return "Search \(next.version) is ready"
-        case .offered(let next): return "Search \(next.version) is out"
+        case .fetching(let next): return "Ant \(next.version) is downloading…"
+        case .ready(let next): return "Ant \(next.version) is ready"
+        case .offered(let next): return "Ant \(next.version) is out"
         }
     }
 
     private var versionDetail: String {
         switch updater.stage {
+        case .none where !Updater.feeds:
+            return "Ant doesn't update itself yet — build a newer one from its source"
         case .none:
             return updater.lastChecked.map { "Checked \($0.formatted(.relative(presentation: .named))) — once a day on its own" }
                 ?? "Checked once a day on its own"
         case .fetching(let next):
             return next.notes ?? "Quietly, in the background — nothing you have set is touched"
         case .ready(let next):
-            return next.notes ?? "It's there the next time you open Search"
+            return next.notes ?? "It's there the next time you open Ant"
         case .offered(let next):
             return next.notes ?? "Open the disk image, the same as the first time"
         }
@@ -523,6 +527,8 @@ struct SettingsPanel: View {
     @ViewBuilder
     private var versionControl: some View {
         switch updater.stage {
+        case .none where !Updater.feeds:
+            EmptyView()
         case .none:
             Pill(updater.checking ? "Checking…" : "Check now") {
                 updater.check { found in

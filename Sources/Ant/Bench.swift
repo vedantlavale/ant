@@ -73,7 +73,7 @@ final class Bench {
         private static var query: [String: Any] {
             [kSecClass as String: kSecClassGenericPassword,
              kSecUseDataProtectionKeychain as String: true,
-             kSecAttrService as String: "com.officecommun.search.bench",
+             kSecAttrService as String: "com.vedant.ant.bench",
              kSecAttrAccount as String: Store.world.map { "consent (\($0))" } ?? "consent"]
         }
 
@@ -326,7 +326,7 @@ final class Bench {
 
         case "select":
             // Picking a tab takes the window over, which the bench never does
-            // to someone using it: only on a SEARCH_PROBE run.
+            // to someone using it: only on a ANT_PROBE run.
             guard Store.testing else {
                 answer(["error": "select only works on a --test run — it would take your window over"])
                 return
@@ -374,7 +374,7 @@ final class Bench {
             // events — trusted, as a hand's is — where `click` only runs
             // element.click() in the page, which a password manager, for one,
             // is right to ignore. `text=Sign in` picks a button or link by its
-            // words. Only on a SEARCH_PROBE run.
+            // words. Only on a ANT_PROBE run.
             guard Store.testing else { answer(["error": "tap only works on a --test run — it would click in your page"]); return }
             guard let tab = find(request, in: browser), let selector = request["selector"] as? String else { answer(missing(request)); return }
             house(tab)
@@ -500,7 +500,7 @@ final class Bench {
         case "press":
             // A key pressed on the app as a whole, through its event queue —
             // so its own shortcuts see it first, as they do a real press;
-            // `key` goes straight to a page instead. Only on a SEARCH_PROBE run.
+            // `key` goes straight to a page instead. Only on a ANT_PROBE run.
             guard Store.testing else { answer(["error": "press only works on a --test run — it would press keys in your browser"]); return }
             guard let code = request["code"] as? Int, let chars = request["chars"] as? String
             else { answer(["error": "press needs a key code and the characters it types"]); return }
@@ -546,7 +546,7 @@ final class Bench {
         case "key":
             // Keys pressed on a tab, as real key events handed to its view —
             // for what the page does with them, and what comes back unused.
-            // Only on a SEARCH_PROBE run: it types into a page.
+            // Only on a ANT_PROBE run: it types into a page.
             guard Store.testing else { answer(["error": "key only works on a --test run — it would type into your page"]); return }
             guard let tab = find(request, in: browser), let text = request["text"] as? String else { answer(missing(request)); return }
             house(tab)
@@ -582,7 +582,7 @@ final class Bench {
         case "resize":
             // The window taken to another size in steps, a frame apart, the
             // way a hand drags its corner — for what that does to the title
-            // bar. It moves the window, so only on a SEARCH_PROBE run.
+            // bar. It moves the window, so only on a ANT_PROBE run.
             guard Store.testing else {
                 answer(["error": "resize only works on a --test run — it would move your window"])
                 return
@@ -681,7 +681,7 @@ final class Bench {
             // whole of it replacing what is selected — or typed a character
             // at a time, each timed from the moment it goes in to the moment
             // the run loop next rests: the list worked out, SwiftUI's update
-            // and Core Animation's commit included. Only on a SEARCH_PROBE run.
+            // and Core Animation's commit included. Only on a ANT_PROBE run.
             guard Store.testing else { answer(["error": "field only works on a --test run — it would type into your browser"]); return }
             guard let text = request["text"] as? String, !text.isEmpty else { answer(["error": "field needs some text"]); return }
             let pieces = request["type"] as? Bool == true ? text.map(String.init) : [text]
@@ -727,7 +727,7 @@ final class Bench {
         case "bookmark":
             // A bookmark picked from the button's list, through the same
             // call the list makes: how long until WebKit is loading it, and
-            // until the run loop rests. Only on a SEARCH_PROBE run.
+            // until the run loop rests. Only on a ANT_PROBE run.
             guard Store.testing else { answer(["error": "bookmark only works on a --test run — it would load a page in your tab"]); return }
             guard let url = (request["url"] as? String).flatMap(Address.url(from:)) else { answer(["error": "bookmark needs a url"]); return }
             // "new": into a new tab, whose page has yet to be built.
@@ -752,7 +752,7 @@ final class Bench {
             // The Bookmarks menu as it is about to open: the menu bar
             // told it is being tracked, SwiftUI's own update run on it, its
             // first folder opened — then what each holds. Only on a
-            // SEARCH_PROBE run; nothing is drawn.
+            // ANT_PROBE run; nothing is drawn.
             guard Store.testing else { answer(["error": "menu only works on a --test run"]); return }
             guard let main = NSApp.mainMenu, let menu = main.items.first(where: { $0.title == "Bookmarks" })?.submenu
             else { answer(["error": "no Bookmarks menu"]); return }
@@ -779,7 +779,7 @@ final class Bench {
             // through the app's key handling and then to the page's view, as
             // AppKit does with a key window — which a hidden probe hasn't.
             // Reports what Search did and what the page saw. Only on a
-            // SEARCH_PROBE run.
+            // ANT_PROBE run.
             guard Store.testing else { answer(["error": "keyeq only works on a --test run"]); return }
             guard let tab = browser.active, let web = tab.built, let window = web.window,
                   let chars = request["chars"] as? String, let code = request["code"] as? Int
@@ -811,7 +811,7 @@ final class Bench {
         case "peek":
             // A link's page in the peek panel over the tab in front, as a
             // shift-click on it would open it (see Peek.swift); "close" puts
-            // it away. Only on a SEARCH_PROBE run.
+            // it away. Only on a ANT_PROBE run.
             guard Store.testing else { answer(["error": "peek only works on a --test run"]); return }
             if request["url"] as? String == "close" {
                 browser.closePeek()
@@ -827,7 +827,7 @@ final class Bench {
             // Two fingers sideways over the page: DX points in STEPS scroll
             // events spread over MS milliseconds, with a trackpad's phases,
             // handed to the page's view — for the swipe back and forward.
-            // Reports where the tab is after. Only on a SEARCH_PROBE run.
+            // Reports where the tab is after. Only on a ANT_PROBE run.
             guard Store.testing else { answer(["error": "pull only works on a --test run"]); return }
             guard let tab = browser.active, let web = tab.built, let dx = request["dx"] as? Double
             else { answer(["error": "pull needs a loaded tab and a distance"]); return }
@@ -869,8 +869,8 @@ final class Bench {
                 return
             }
             let items = NSApp.mainMenu?.items.first { $0.submenu?.title == "Window" }?.submenu?.items ?? []
-            guard let item = items.first(where: { $0.title == "Search" }), let action = item.action else {
-                answer(["error": "no Search item in the Window menu", "items": items.map(\.title)])
+            guard let item = items.first(where: { $0.title == "Ant" }), let action = item.action else {
+                answer(["error": "no Ant item in the Window menu", "items": items.map(\.title)])
                 return
             }
             NSApp.sendAction(action, to: item.target, from: item)
@@ -1413,7 +1413,7 @@ final class Bench {
     /// bench is how this browser is driven while somebody is using it, and
     /// reading, clicking or sleeping in one of their tabs is not part of
     /// that: a script here is meant for tabs marked with the flask. A
-    /// SEARCH_PROBE run has nobody's tabs in it, so there any tab answers,
+    /// ANT_PROBE run has nobody's tabs in it, so there any tab answers,
     /// as for `tap` and `select`: a popup a bench page opened with
     /// `window.open` carries no flask and would be out of reach otherwise.
     private func find(_ request: [String: Any], in browser: Browser) -> Tab? {

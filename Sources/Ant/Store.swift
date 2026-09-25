@@ -15,30 +15,30 @@ enum Store {
     /// once wrote over somebody's real session, and asking a person to
     /// remember a flag is not a safeguard.
     static var testing: Bool {
-        if ProcessInfo.processInfo.environment["SEARCH_PROBE"] != nil { return true }
+        if ProcessInfo.processInfo.environment["ANT_PROBE"] != nil { return true }
         return Bundle.main.executablePath?.contains("/.build/") == true
     }
 
-    /// Which test world a test run lives in. SEARCH_PROBE=1, or a run from
-    /// the build folder, is the test world, "Search (test)". SEARCH_PROBE=
-    /// <name> is a world of its own, "Search (<name>)", with settings and
+    /// Which test world a test run lives in. ANT_PROBE=1, or a run from
+    /// the build folder, is the test world, "Ant (test)". ANT_PROBE=
+    /// <name> is a world of its own, "Ant (<name>)", with settings and
     /// WebKit stores of its own: two sessions testing at once, or a
     /// measurement that needs a browser nobody has installed anything in,
     /// never borrow each other's. Nil for the browser somebody is using.
     static let world: String? = {
         guard testing else { return nil }
-        let asked = (ProcessInfo.processInfo.environment["SEARCH_PROBE"] ?? "").lowercased()
+        let asked = (ProcessInfo.processInfo.environment["ANT_PROBE"] ?? "").lowercased()
             .filter { ($0.isASCII && ($0.isLetter || $0.isNumber)) || $0 == "-" }
         return asked.isEmpty || asked == "1" || asked == "test" ? "test" : asked
     }()
 
     /// A test run there to be weighed and timed rather than driven
-    /// (SEARCH_MEASURE beside SEARCH_PROBE). It keeps what the shipped
+    /// (ANT_MEASURE beside ANT_PROBE). It keeps what the shipped
     /// browser does where test runs otherwise differ — hidden pages slowed
     /// the way WebKit slows them, App Nap left to macOS — so what gets
     /// measured is what people get.
     static var measuring: Bool {
-        testing && ProcessInfo.processInfo.environment["SEARCH_MEASURE"] != nil
+        testing && ProcessInfo.processInfo.environment["ANT_MEASURE"] != nil
     }
 
     /// Cookies, sign-ins, caches. WebKit keeps its default store per bundle,
@@ -58,7 +58,7 @@ enum Store {
     /// differ from stores made by identifier in how long extension workers
     /// are let live.
     static var ownContainer: Bool {
-        (Bundle.main.bundleIdentifier ?? "") != "com.officecommun.search"
+        (Bundle.main.bundleIdentifier ?? "") != "com.vedant.ant"
     }
 
     /// The fixed identifiers of a test world's WebKit stores: 1 for websites,
@@ -76,19 +76,24 @@ enum Store {
         return UUID(uuidString: text)!
     }
 
-    /// The app was called Office Browser until September 2026. Everything it
-    /// kept — the session, the pins, the history, what is hidden on each site
-    /// — moves to the new name the first time the new name runs, and the
-    /// settings are copied across. Nothing is left to be lost.
+    /// Ant is made from Search (Office Commun's browser, which was Office
+    /// Browser before that). The first time Ant runs, what Search kept — the
+    /// session, the pins, history, bookmarks, what is hidden on each site,
+    /// the extensions — is copied across. Copied, not moved: Search may
+    /// still be on this Mac, and still in use.
     static let folder: URL = {
         let support = FileManager.default
             .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        let home = support.appendingPathComponent(world.map { "Search (\($0))" } ?? "Search", isDirectory: true)
+        let home = support.appendingPathComponent(world.map { "Ant (\($0))" } ?? "Ant", isDirectory: true)
         if !testing {
-            let old = support.appendingPathComponent("Office Browser", isDirectory: true)
             let files = FileManager.default
-            if !files.fileExists(atPath: home.path), files.fileExists(atPath: old.path) {
-                try? files.moveItem(at: old, to: home)
+            let before = ["Search", "Office Browser"]
+                .map { support.appendingPathComponent($0, isDirectory: true) }
+                .first { files.fileExists(atPath: $0.path) }
+            if !files.fileExists(atPath: home.path), let before {
+                try? files.copyItem(at: before, to: home)
+                // Search's own socket for scripts is no use to Ant.
+                try? files.removeItem(at: home.appendingPathComponent("bench.sock"))
             }
         }
         return home
@@ -119,23 +124,27 @@ enum Store {
             carryOver(into: .standard)
             return .standard
         }
-        let suite = world == "test" ? "com.officecommun.search.test" : "com.officecommun.search.test.\(world ?? "")"
+        let suite = world == "test" ? "com.vedant.ant.test" : "com.vedant.ant.test.\(world ?? "")"
         return UserDefaults(suiteName: suite) ?? .standard
     }()
 
-    /// The old bundle's defaults, read once and written under the new one.
+    /// Search's settings, read once and written under Ant's own name. A
+    /// setting Ant already has is Ant's; the rest come as they were.
     private static func carryOver(into fresh: UserDefaults) {
-        guard !fresh.bool(forKey: "carried"),
-              let old = UserDefaults(suiteName: "com.driceroland.officebrowser")
-        else { return }
-        for (key, value) in old.dictionaryRepresentation()
-        where fresh.object(forKey: key) == nil && !key.hasPrefix("NS") && !key.hasPrefix("Apple") {
+        guard !fresh.bool(forKey: "carried.search") else { return }
+        fresh.set(true, forKey: "carried.search")
+        guard let old = UserDefaults(suiteName: "com.officecommun.search") else { return }
+        // What only meant something to Search: its updater, its script
+        // socket's consent, and whether its passkey entitlement was seen.
+        let skipped: Set<String> = ["bench", "passkeys.entitled", "update.skipped", "carried"]
+        for (key, value) in old.persistentDomain(forName: "com.officecommun.search") ?? [:]
+        where fresh.object(forKey: key) == nil && !key.hasPrefix("NS") && !key.hasPrefix("Apple")
+            && !key.hasPrefix("update") && !skipped.contains(key) {
             fresh.set(value, forKey: key)
         }
         // The window comes back where it was, under its new name.
-        if let frame = old.string(forKey: "NSWindow Frame office-browser") {
-            fresh.set(frame, forKey: "NSWindow Frame search")
+        if let frame = old.string(forKey: "NSWindow Frame search") {
+            fresh.set(frame, forKey: "NSWindow Frame ant")
         }
-        fresh.set(true, forKey: "carried")
     }
 }

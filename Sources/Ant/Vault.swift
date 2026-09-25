@@ -7,8 +7,8 @@ import LocalAuthentication
 // this app in any other form, and nothing is ever logged.
 //
 // This is the same coffer Safari's are in, but not the same drawer: Apple keeps
-// Safari's behind an entitlement no other browser gets. So these are Office
-// Browser's — in the system's vault, unlocked with the Mac, shown with Touch ID.
+// Safari's behind an entitlement no other browser gets. So these are Ant's —
+// in the system's vault, unlocked with the Mac, shown with Touch ID.
 
 struct Login: Identifiable, Equatable, Hashable {
     var host: String
@@ -23,7 +23,61 @@ struct Login: Identifiable, Equatable, Hashable {
 enum Vault {
     /// What every item of ours is tagged with. A test run tags its own, so a
     /// password saved while trying something never sits among the real ones.
-    private static let label = Store.world.map { "Search (\($0))" } ?? "Search"
+    private static let label = Store.world.map { "Ant (\($0))" } ?? "Ant"
+    /// Kept in every item of ours besides the label. The keychain tells two
+    /// internet passwords apart by site and name, not by label, so without
+    /// it a password the browser this came from (Search) already kept for
+    /// the same site and name would stand in the way of ours.
+    private static let domain = "ant"
+
+    /// What the browser this is made from, Search, kept under its own label.
+    /// Listed without their secrets, which costs no keychain prompt.
+    static let inSearch: Int = {
+        guard Store.world == nil else { return 0 }
+        var out: CFTypeRef?
+        let status = SecItemCopyMatching([
+            kSecClass as String: kSecClassInternetPassword,
+            kSecAttrLabel as String: "Search",
+            kSecReturnAttributes as String: true,
+            kSecMatchLimit as String: kSecMatchLimitAll,
+        ] as CFDictionary, &out)
+        guard status == errSecSuccess, let rows = out as? [[String: Any]] else { return 0 }
+        return rows.count
+    }()
+
+    /// Search's passwords, secrets and all. The items were made by Search,
+    /// so macOS asks before handing each one to Ant — "Always Allow" once
+    /// per password. Off the main thread: each prompt waits for you.
+    static func fromSearch() -> [Login] {
+        var out: CFTypeRef?
+        let status = SecItemCopyMatching([
+            kSecClass as String: kSecClassInternetPassword,
+            kSecAttrLabel as String: "Search",
+            kSecReturnAttributes as String: true,
+            kSecMatchLimit as String: kSecMatchLimitAll,
+        ] as CFDictionary, &out)
+        guard status == errSecSuccess, let rows = out as? [[String: Any]] else { return [] }
+        return rows.compactMap { row in
+            guard let host = row[kSecAttrServer as String] as? String,
+                  let user = row[kSecAttrAccount as String] as? String
+            else { return nil }
+            var data: CFTypeRef?
+            let read = SecItemCopyMatching([
+                kSecClass as String: kSecClassInternetPassword,
+                kSecAttrLabel as String: "Search",
+                kSecAttrServer as String: host,
+                kSecAttrAccount as String: user,
+                kSecReturnData as String: true,
+                kSecMatchLimit as String: kSecMatchLimitOne,
+            ] as CFDictionary, &data)
+            guard read == errSecSuccess, let bytes = data as? Data,
+                  let password = String(data: bytes, encoding: .utf8)
+            else { return nil }
+            let used = (row[kSecAttrComment as String] as? String)
+                .flatMap(Double.init).map(Date.init(timeIntervalSince1970:))
+            return Login(host: host, user: user, password: password, used: used)
+        }
+    }
 
     // MARK: - reading
 
@@ -123,6 +177,7 @@ enum Vault {
             kSecAttrServer as String: host,
             kSecAttrAccount as String: user,
             kSecAttrLabel as String: label,
+            kSecAttrSecurityDomain as String: domain,
         ]
         var fields: [String: Any] = [
             kSecValueData as String: data,
@@ -150,6 +205,7 @@ enum Vault {
             kSecAttrServer as String: host,
             kSecAttrAccount as String: user,
             kSecAttrLabel as String: label,
+            kSecAttrSecurityDomain as String: domain,
         ] as CFDictionary)
     }
 

@@ -20,7 +20,7 @@ enum Web {
     /// that with a CAPTCHA every few searches, and refused sign-ins as "not
     /// secure" (24 Sep 2026). Only Search's passkey patch has to stand in
     /// the page's own world, and nothing there leads back to it.
-    @MainActor static let world = WKContentWorld.world(name: "Search")
+    @MainActor static let world = WKContentWorld.world(name: "Ant")
 
     /// Every handler of Search's taken off a controller: in its own world,
     /// and in the page's, where they all were before 24 Sep 2026 — a tab

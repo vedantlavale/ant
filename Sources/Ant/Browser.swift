@@ -378,6 +378,10 @@ final class Browser: NSObject, ObservableObject {
 
     /// What came back from another browser's store, put in the keychain.
     func took(_ outcome: Result<Chromium.Found, Error>, from source: Chromium.Source) {
+        took(outcome, named: source.name)
+    }
+
+    func took(_ outcome: Result<Chromium.Found, Error>, named name: String) {
         switch outcome {
         case .success(let found):
             var kept = 0
@@ -389,11 +393,11 @@ final class Browser: NSObject, ObservableObject {
             found.never.forEach { never.insert($0) }
             Vault.never = never
             relist()
-            announce(kept == 0 ? "Nothing new in \(source.name)" : "\(kept) passwords from \(source.name)")
+            announce(kept == 0 ? "Nothing new in \(name)" : "\(kept) passwords from \(name)")
         case .failure(Chromium.Trouble.noPassphrase):
-            announce("\(source.name) didn't give up its keychain key")
+            announce("\(name) didn't give up its keychain key")
         case .failure:
-            announce("Nothing readable in \(source.name)")
+            announce("Nothing readable in \(name)")
         }
     }
 
@@ -741,7 +745,7 @@ final class Browser: NSObject, ObservableObject {
         if prefs.bench {
             Bench.shared.start(for: self)
         } else if prefs.benchRefused {
-            announce("“Let a script drive Search” was turned on outside Settings, and stays off")
+            announce("“Let a script drive Ant” was turned on outside Settings, and stays off")
         }
         welcoming = !prefs.welcomed
         // Asked to stay out of the way: it starts that way (see Fold.swift).
@@ -938,7 +942,7 @@ final class Browser: NSObject, ObservableObject {
             .sink { [weak self] on in
                 guard let self else { return }
                 if on { Bench.shared.start(for: self) } else { Bench.shared.stop() }
-                announce(on ? "Scripts can drive Search — see ./bench" : "The bench is closed")
+                announce(on ? "Scripts can drive Ant — see ./bench" : "The bench is closed")
             }
             .store(in: &bag)
 

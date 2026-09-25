@@ -15,7 +15,7 @@ import Security
 //
 // What the updater leaves alone, on purpose: everything in
 // ~/Library/Application Support/Search, the defaults under
-// com.officecommun.search, and the keychain. The session, the pins, the
+// com.vedant.ant, and the keychain. The session, the pins, the
 // history, the passwords — none of it is read, moved or rewritten here. Only
 // the bundle changes hands, and it keeps its bundle id and its signing
 // identity, so the keychain items the old build made open for the new one.
@@ -29,19 +29,17 @@ import Security
 final class Updater: ObservableObject {
     static let shared = Updater()
 
-    /// Where the file lives. SEARCH_FEED, for a test run, points somewhere
-    /// else — and is the only way plain http is accepted, so a build that
-    /// was not handed the variable only ever listens to the real site.
-    static let feed: URL = {
-        if let set = ProcessInfo.processInfo.environment["SEARCH_FEED"], let url = URL(string: set) {
-            return url
-        }
-        return URL(string: "https://officecommun.com/search/appcast.json")!
-    }()
+    /// Where the file lives — nowhere yet. Ant has no update feed of its
+    /// own, and Search's belongs to Search: pointed at it, this would offer
+    /// to swap Ant for Search. So Ant never asks anyone anything unless
+    /// ANT_FEED names a feed (a test run's, or one Ant has later), and that
+    /// is the only way plain http is accepted.
+    static let feed: URL? = ProcessInfo.processInfo.environment["ANT_FEED"].flatMap(URL.init(string:))
 
-    private static var overridden: Bool {
-        ProcessInfo.processInfo.environment["SEARCH_FEED"] != nil
-    }
+    /// Whether this build looks for updates at all.
+    static var feeds: Bool { feed != nil }
+
+    private static var overridden: Bool { feeds }
 
     struct Release: Equatable {
         let version: String
@@ -114,6 +112,7 @@ final class Updater: ObservableObject {
     /// checks every time.
     func checkIfDue(then say: @escaping (String) -> Void) {
         self.say = say
+        guard Updater.feeds else { return }
         Swap.sweep()
         // And again every hour for as long as the app is up — a browser that
         // is left open for a week would otherwise never look.
@@ -138,6 +137,7 @@ final class Updater: ObservableObject {
     /// names, or nil when this is the latest; what becomes of it after that
     /// is said through the line handed to `checkIfDue`.
     func check(then done: @escaping (Release?) -> Void) {
+        guard Updater.feeds else { done(nil); return }
         guard !checking else { return }
         checking = true
         Task { [weak self] in
@@ -184,8 +184,8 @@ final class Updater: ObservableObject {
         guard case .fetching(let fetching) = stage, fetching == release else { return }
         stage = worked ? .ready(release) : .offered(release)
         say?(worked
-            ? "Search \(release.version) is ready — it's there the next time you open it"
-            : "Search \(release.version) is out — it's in Settings")
+            ? "Ant \(release.version) is ready — it's there the next time you open it"
+            : "Ant \(release.version) is out — it's in Settings")
     }
 
     /// Quit, and come back as the new one. A shell waits for this process
@@ -208,7 +208,7 @@ final class Updater: ObservableObject {
     /// environment and a relaunch must not land on the real data.
     private static var reopen: [String] {
         var arguments = ["/usr/bin/open"]
-        for key in ["SEARCH_PROBE", "SEARCH_FEED"] {
+        for key in ["ANT_PROBE", "ANT_FEED"] {
             if let value = ProcessInfo.processInfo.environment[key] {
                 arguments += ["--env", "\(key)=\(value)"]
             }
@@ -217,6 +217,7 @@ final class Updater: ObservableObject {
     }
 
     private static func fetch() async -> Release? {
+        guard let feed else { return nil }
         var request = URLRequest(url: feed)
         request.cachePolicy = .reloadIgnoringLocalCacheData
         request.timeoutInterval = 12
@@ -250,7 +251,7 @@ final class Updater: ObservableObject {
     private static func link(_ value: Any?) -> URL? {
         guard let url = (value as? String).flatMap(URL.init(string:)) else { return nil }
         guard url.scheme == "https" || (overridden && url.scheme == "http") else { return nil }
-        guard url.host == feed.host else { return nil }
+        guard let feed, url.host == feed.host else { return nil }
         return url
     }
 }
@@ -292,7 +293,7 @@ private enum Swap {
         try files.createDirectory(at: scratch, withIntermediateDirectories: true)
         defer { try? files.removeItem(at: scratch) }
 
-        let zip = scratch.appendingPathComponent("Search.zip")
+        let zip = scratch.appendingPathComponent("Ant.zip")
         try await download(release.archive, to: zip)
         // A feed with no checksum is refused as a wrong one would be: build.sh
         // always writes it, so one missing is a feed that isn't ours.

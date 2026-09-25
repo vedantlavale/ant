@@ -1,6 +1,6 @@
 # Changelog
 
-What changes in Search from one version to the next, newest first.
+What changes in Ant from one version to the next, newest first. Ant is made from Search by Office Commun; everything up to 1.0.2 is Search's history.
 
 **Unreleased** gathers what is done since the last version, as it lands:
 every fix and every addition gets its line the day it is merged. When a
@@ -12,6 +12,9 @@ in [ROADMAP.md](ROADMAP.md).
 ## Unreleased
 
 ### Added
+
+- Search is now Ant, by Vedant: its own name, its own icon (an ant, seen from above), its own bundle id (`com.vedant.ant`) and its own folder, `~/Library/Application Support/Ant/`. The first launch copies Search's tabs, pins, history, bookmarks, hidden elements, extensions and settings across and leaves Search's as they were; passwords come over from Settings › Passwords › Bring in from Search. Ant doesn't update itself yet, and Send Feedback opens an issue on GitHub.
+- `./build.sh` signs with any code-signing identity `ANT_SIGN_IDENTITY` names, so the keychain stops asking again after every build.
 
 - ⌥Tab goes back through the tabs you were last on, as ⌘Tab does through apps: hold ⌥ and press Tab to move along the list over the page, ⇧ to go back, and let go to land; esc leaves you where you were. ⌃Tab still walks the row in order.
 - Choose what the window opens with: the last session, as before, a new tab, or a homepage of your own — Settings › Tabs › On launch, and on the welcome's second-to-last page. Pinned tabs are there whichever you choose.

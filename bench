@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Drive the Search you already have open, from the shell.
+"""Drive the Ant you already have open, from the shell.
 
     ./bench tabs                       every tab, yours and the bench's
     ./bench open URL                   a bench tab at the end of the row → its id
@@ -13,7 +13,7 @@
     ./bench release                    let go of every modifier, as ends a ⌥Tab or ⌘K walk — --test runs only
     ./bench tap ID SELECTOR [MODS…]    a real mouse click on an element (or text=Words), shift/cmd/opt held — --test runs only
     ./bench text ID                    the page's text
-    ./bench eval ID JS [search]        run JavaScript, print what it returns; search: in Search's own world
+    ./bench eval ID JS [search]        run JavaScript, print what it returns; search: in Ant's own world
     ./bench click ID SELECTOR
     ./bench type ID SELECTOR TEXT
     ./bench submit ID SELECTOR         the form around SELECTOR
@@ -67,10 +67,10 @@
                                        look light|dark|system, sidebar on|off, spaces on|off, hides on|off,
                                        folded on|off, peek on|off, peeklink keep|close, pages120 on|off
 
-Needs Settings › General › "Let a script drive Search" switched on in the
+Needs Settings › General › "Let a script drive Ant" switched on in the
 running app. IDs are the first characters of a tab's id, as `tabs` prints
-them. With --test, talks to a SEARCH_PROBE run instead of the real one;
-with --world NAME, to a SEARCH_PROBE=NAME run, the world "Search (NAME)".
+them. With --test, talks to a ANT_PROBE run instead of the real one;
+with --world NAME, to a ANT_PROBE=NAME run, the world "Ant (NAME)".
 """
 
 import json
@@ -79,7 +79,7 @@ import socket
 import sys
 
 def folder(world):
-    name = f"Search ({world})" if world else "Search"
+    name = f"Ant ({world})" if world else "Ant"
     return os.path.expanduser(f"~/Library/Application Support/{name}")
 
 def ask(path, request):
@@ -87,8 +87,8 @@ def ask(path, request):
         try:
             s.connect(path)
         except (FileNotFoundError, ConnectionRefusedError):
-            sys.exit("Search isn't listening — is it open, with Settings › General › "
-                     "“Let a script drive Search” on?")
+            sys.exit("Ant isn't listening — is it open, with Settings › General › "
+                     "“Let a script drive Ant” on?")
         s.sendall((json.dumps(request) + "\n").encode())
         chunks = []
         while True:

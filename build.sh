@@ -4,7 +4,7 @@
 # fetches.
 #
 #   ./build.sh                 debug-free release build, ad-hoc signed: runs here
-#   ./build.sh release dmg     + build/Search.dmg, build/Search.zip and
+#   ./build.sh release dmg     + build/Ant.dmg, build/Ant.zip and
 #                                build/appcast.json, signed with Developer ID
 #                                if there is one in the keychain
 #   ./build.sh release ship    + both notarised, the DMG stapled
@@ -21,12 +21,12 @@
 #
 # What "ship" needs, once:
 #   - a Developer ID Application certificate in the login keychain
-#     (SEARCH_SIGN_IDENTITY names it; otherwise the first one found is used)
-#   - a notarytool profile: xcrun notarytool store-credentials "search"
-#     (SEARCH_NOTARY_PROFILE names it; default "search")
-#   - SEARCH_DOWNLOAD_URL, the https folder the three files are served from,
-#     for the appcast. Default https://officecommun.com/search, which is
-#     where Updater.feed in Updater.swift looks.
+#     (ANT_SIGN_IDENTITY names it; otherwise the first one found is used)
+#   - a notarytool profile: xcrun notarytool store-credentials "ant"
+#     (ANT_NOTARY_PROFILE names it; default "ant")
+#   - ANT_DOWNLOAD_URL, the https folder the three files are served from,
+#     for the appcast. Ant has no feed of its own yet; Updater.swift only
+#     looks for updates when the app is run with ANT_FEED set.
 #
 # NOTES.md, next to this script, is what's new: newest release first, one
 # paragraph each. The first paragraph goes into the appcast, and from there
@@ -36,8 +36,8 @@ set -euo pipefail
 cd "$(dirname "$0")"
 CONFIG="${1:-release}"
 STEP="${2:-app}"
-APP="build/Search.app"
-NAME="Search"
+APP="build/Ant.app"
+NAME="Ant"
 VERSION="$(tr -d '[:space:]' < VERSION)"
 # A build number that only ever goes up, so the updater can tell newer from
 # older without parsing version strings.
@@ -57,7 +57,7 @@ if [ -z "${SDKROOT:-}" ] && [ "$(xcode-select -p)" = /Library/Developer/CommandL
 fi
 
 swift build -c "$CONFIG"
-BINARY=".build/$CONFIG/Search"
+BINARY=".build/$CONFIG/Ant"
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
@@ -68,7 +68,7 @@ cp "$BINARY" "$APP/Contents/MacOS/$NAME"
 # what the app weighed (6.5 MB of binary, 2.7 without them), and nothing the
 # app reads while it runs. They are kept beside the build instead, as a dSYM
 # that turns the addresses in a crash report back into names (Console, or
-# atos -o build/Search.app.dSYM/Contents/Resources/DWARF/Search).
+# atos -o build/Ant.app.dSYM/Contents/Resources/DWARF/Ant).
 if [ "$CONFIG" = "release" ]; then
   rm -rf "$APP.dSYM"
   dsymutil "$BINARY" -o "$APP.dSYM" 2>/dev/null || echo "no dSYM this time" >&2
@@ -91,14 +91,14 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundleName</key><string>$NAME</string>
   <key>CFBundleDisplayName</key><string>$NAME</string>
   <key>CFBundleExecutable</key><string>$NAME</string>
-  <key>CFBundleIdentifier</key><string>com.officecommun.search</string>
+  <key>CFBundleIdentifier</key><string>com.vedant.ant</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>$VERSION</string>
   <key>CFBundleVersion</key><string>$BUILD</string>
   <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>LSMinimumSystemVersion</key><string>$MINIMUM</string>
   <key>LSApplicationCategoryType</key><string>public.app-category.productivity</string>
-  <key>NSHumanReadableCopyright</key><string>© Office Commun · Search</string>
+  <key>NSHumanReadableCopyright</key><string>© Vedant · Ant, made from Search by Office Commun</string>
   <key>NSHighResolutionCapable</key><true/>
   <!-- Owning http and https is what sends a link clicked in Mail here.
        Appearing in Desktop & Dock → Default web browser also needs the
@@ -121,7 +121,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     </dict>
     <!-- macOS only lists an app under Desktop & Dock → Default web browser
          when it claims public.xhtml as well as public.html. http and https
-         alone, which Search already had, are not enough. -->
+         alone, which the app already had, are not enough. -->
     <dict>
       <key>CFBundleTypeName</key><string>XHTML page</string>
       <key>CFBundleTypeRole</key><string>Viewer</string>
@@ -137,9 +137,9 @@ cat > "$APP/Contents/Info.plist" <<PLIST
        still wants a sentence to put in its own prompt, and touching the APIs
        without one is a crash rather than a refusal. -->
   <key>NSCameraUsageDescription</key>
-  <string>Websites you visit can ask to use your camera. Search asks you first, every time, for each site.</string>
+  <string>Websites you visit can ask to use your camera. Ant asks you first, every time, for each site.</string>
   <key>NSMicrophoneUsageDescription</key>
-  <string>Websites you visit can ask to use your microphone. Search asks you first, every time, for each site.</string>
+  <string>Websites you visit can ask to use your microphone. Ant asks you first, every time, for each site.</string>
   <key>NSDownloadsFolderUsageDescription</key>
   <string>Files you download are saved to your Downloads folder.</string>
 </dict>
@@ -147,28 +147,45 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 PLIST
 
 # Signing. A Developer ID certificate, when there is one, with the hardened
-# runtime Gatekeeper insists on for anything notarised; otherwise ad-hoc,
-# which is enough for the app to run on the machine that built it — and
-# which the updater refuses to swap anything in under.
-IDENTITY="${SEARCH_SIGN_IDENTITY:-$(security find-identity -v -p codesigning 2>/dev/null \
+# runtime Gatekeeper insists on for anything notarised. ANT_SIGN_IDENTITY can
+# name any other code-signing identity instead — an Apple Development one, or
+# one made in Keychain Access › Certificate Assistant for this Mac alone:
+# the keychain knows an app by its signature, and an ad-hoc signature is new
+# with every build, so saved passwords ask for access again after each one.
+# With nothing at all, ad-hoc: enough to run on the machine that built it.
+IDENTITY="${ANT_SIGN_IDENTITY:-$(security find-identity -v -p codesigning 2>/dev/null \
   | grep -o '"Developer ID Application: [^"]*"' | head -1 | tr -d '"' || true)}"
 # Passkeys need an entitlement Apple grants to browsers on request, and a
-# Developer ID provisioning profile that carries it. With the profile next to
-# this script, both go in; without it, the app is signed as before, because
-# a restricted entitlement with no profile behind it is an app that won't open.
-ENTITLEMENTS="Search.entitlements"
-if [ -f "Search.provisionprofile" ]; then
-  cp "Search.provisionprofile" "$APP/Contents/embedded.provisionprofile"
-  ENTITLEMENTS="Search.passkeys.entitlements"
-  echo "passkeys: profile embedded"
+# Developer ID provisioning profile that carries it, for your own team: put
+# your team id in Ant.passkeys.entitlements and the profile next to this
+# script as Ant.provisionprofile. Without all of that, the app is signed as
+# before, because a restricted entitlement with no profile behind it is an
+# app that won't open.
+ENTITLEMENTS="Ant.entitlements"
+if [ -f "Ant.provisionprofile" ]; then
+  if [[ "$IDENTITY" != "Developer ID Application:"* ]]; then
+    echo "passkeys: Ant.provisionprofile is here, but it needs a Developer ID identity to sign with — left out" >&2
+  elif grep -q "TEAMID" Ant.passkeys.entitlements; then
+    echo "passkeys: put your team id in Ant.passkeys.entitlements first — left out" >&2
+  else
+    cp "Ant.provisionprofile" "$APP/Contents/embedded.provisionprofile"
+    ENTITLEMENTS="Ant.passkeys.entitlements"
+    echo "passkeys: profile embedded"
+  fi
 fi
-if [ -n "$IDENTITY" ]; then
+if [[ "$IDENTITY" == "Developer ID Application:"* ]]; then
   codesign --force --deep --timestamp --options runtime \
     --entitlements "$ENTITLEMENTS" \
     --sign "$IDENTITY" "$APP"
   echo "signed as: $IDENTITY"
+elif [ -n "$IDENTITY" ]; then
+  codesign --force --deep --options runtime \
+    --entitlements "$ENTITLEMENTS" \
+    --sign "$IDENTITY" "$APP"
+  echo "signed as: $IDENTITY (runs on this Mac)"
 else
-  codesign --force --deep --sign - "$APP" 2>/dev/null || true
+  codesign --force --deep --sign - "$APP"
+  echo "signed ad-hoc — set ANT_SIGN_IDENTITY to keep keychain access across builds" >&2
   [ "$STEP" != "app" ] && echo "no Developer ID certificate found — the DMG will only open on this Mac" >&2
 fi
 
@@ -219,7 +236,7 @@ echo "packed: $ZIP"
 
 # What the updater reads. The first paragraph of NOTES.md, with the two
 # characters JSON minds escaped, is the line under the version in Settings.
-BASE="${SEARCH_DOWNLOAD_URL:-https://officecommun.com/search}"
+BASE="${ANT_DOWNLOAD_URL:-https://github.com/vedantlavale/ant/releases/latest/download}"
 BASE="${BASE%/}"
 NOTES=""
 if [ -f NOTES.md ]; then
@@ -243,9 +260,9 @@ echo "wrote: build/appcast.json ($VERSION, build $BUILD)"
 # Notarisation: Apple looks both over. The ticket is stapled to the image,
 # so it opens on a Mac that has never seen this app and is offline; the ZIP
 # is fetched by an app that already trusts it, and is left as hashed.
-[ -z "$IDENTITY" ] && { echo "can't ship without a Developer ID certificate" >&2; exit 1; }
+[[ "$IDENTITY" != "Developer ID Application:"* ]] && { echo "can't ship without a Developer ID certificate" >&2; exit 1; }
 for FILE in "$DMG" "$ZIP"; do
-  xcrun notarytool submit "$FILE" --keychain-profile "${SEARCH_NOTARY_PROFILE:-search}" --wait
+  xcrun notarytool submit "$FILE" --keychain-profile "${ANT_NOTARY_PROFILE:-ant}" --wait
 done
 xcrun stapler staple "$DMG"
 echo "shipped: $DMG, $ZIP and build/appcast.json — ./publish.sh <folder> puts them on the site"

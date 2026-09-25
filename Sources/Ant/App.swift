@@ -11,7 +11,7 @@ struct SearchApp: App {
     @NSApplicationDelegateAdaptor(Links.self) private var links
 
     var body: some Scene {
-        Window("Search", id: "browser") {
+        Window("Ant", id: "browser") {
             ContentView(browser: browser)
                 .frame(minWidth: 640, minHeight: 420)
         }
@@ -723,7 +723,7 @@ struct ContentView: View {
         // own: the name lives in the app's standard defaults, which every
         // copy shares, and a probe resized for a test once changed the size
         // the real window came back at.
-        window.setFrameAutosaveName(Store.world.map { "search (\($0))" } ?? "search")
+        window.setFrameAutosaveName(Store.world.map { "ant (\($0))" } ?? "ant")
 
         // The traffic lights set in from the corner and centred in the strip's
         // height, in both modes, without a toolbar's rounder corners — see

@@ -349,12 +349,17 @@ struct SettingsPanel: View {
                 Line(
                     "Offer passkeys",
                     !prefs.passkeysPossible
-                        ? "Needs an Apple entitlement this build doesn't have — off keeps sites to the password"
+                        ? "Needs Apple's browser entitlement, which this build isn't signed with. A password manager extension such as iCloud Passwords can still offer yours"
                         : Passkeys.access == .denied
                         ? "macOS was told no — System Settings › Privacy & Security › Passkeys Access for Web Browsers"
                         : "Touch ID or an iCloud passkey, on sites that offer one"
                 ) {
-                    Switch(on: $prefs.passkeys)
+                    Switch(on: Binding(
+                        get: { prefs.passkeysPossible && prefs.passkeys },
+                        set: { prefs.passkeys = $0 }
+                    ))
+                    .disabled(!prefs.passkeysPossible)
+                    .opacity(prefs.passkeysPossible ? 1 : 0.4)
                 }
                 if !Vault.never.isEmpty {
                     Rule()

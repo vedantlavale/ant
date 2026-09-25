@@ -59,7 +59,9 @@ final class FormRelay: NSObject, WKScriptMessageHandler {
     /// the entitlement, as releases are, this is on, and Search carries out
     /// the sites' requests itself (see Passkeys.swift).
     static var passkeysOffered: Bool {
-        get { Store.settings.bool(forKey: "passkeys") }
+        // Never in a build that can't do them, whatever an older one left
+        // set: sites would be sent down a path that can only fail.
+        get { Preferences.entitledToPasskeys && Store.settings.bool(forKey: "passkeys") }
         set { Store.settings.set(newValue, forKey: "passkeys") }
     }
 
@@ -147,6 +149,41 @@ final class FormRelay: NSObject, WKScriptMessageHandler {
         return { user: user, pass: pass };
       }
 
+      // A sign-in that asks for the name first — Google, Microsoft, Apple —
+      // has no password box yet: the box that takes a name, on its own.
+      function lone(el) {
+        if (el === undefined) el = document.activeElement;
+        if (pair()) return null;
+        if (!el || (el.tagName || '').toLowerCase() !== 'input') return null;
+        var kind = (el.type || 'text').toLowerCase();
+        if (['text', 'email', 'tel'].indexOf(kind) < 0) return null;
+        var auto = (el.getAttribute('autocomplete') || '').toLowerCase();
+        if (auto.indexOf('username') >= 0 || auto.indexOf('webauthn') >= 0) return el;
+        if (kind === 'email' || auto === 'email') return el;
+        var said = [el.name, el.id, el.getAttribute('aria-label'), el.placeholder].join(' ').toLowerCase();
+        return /user|login|e-?mail|identifier|account/.test(said) ? el : null;
+      }
+      // Any such box on show, for when a button has the focus by the time
+      // the name is sent.
+      function loneOnShow() {
+        var boxes = document.querySelectorAll('input');
+        for (var i = 0; i < boxes.length; i++) {
+          var r = boxes[i].getBoundingClientRect();
+          if (r.width > 0 && r.height > 0 && lone(boxes[i])) return boxes[i];
+        }
+        return null;
+      }
+
+      // The name given at that first step, for the password step to be kept
+      // under: by then the box it was typed in is gone. Kept for the tab's
+      // life on this site, as the site itself keeps it.
+      function remember(name) {
+        try { if (name) sessionStorage.setItem('__antSignInName', name); } catch (e) {}
+      }
+      function remembered() {
+        try { return sessionStorage.getItem('__antSignInName') || ''; } catch (e) { return ''; }
+      }
+
       function put(box, value) {
         if (!box) return;
         var setter = Object.getOwnPropertyDescriptor(
@@ -191,7 +228,13 @@ final class FormRelay: NSObject, WKScriptMessageHandler {
         unsaved: unsaved,
         fill: function (user, password) {
           var both = pair();
-          if (!both) return false;
+          if (!both) {
+            var name = lone();
+            if (!name) return false;
+            put(name, user);
+            remember(user);
+            return true;
+          }
           if (both.user && !both.user.value) put(both.user, user);
           put(both.pass, password);
           return true;
@@ -206,10 +249,15 @@ final class FormRelay: NSObject, WKScriptMessageHandler {
       // once the page has moved on, and keeps the last thing it heard.
       function offer() {
         var both = pair();
-        if (!both || !both.pass.value) return;
+        if (!both) {
+          var name = lone() || loneOnShow();
+          if (name && name.value) remember(name.value);
+          return;
+        }
+        if (!both.pass.value) return;
         window.webkit.messageHandlers.officeForms.postMessage({
           kind: 'submit',
-          user: both.user ? both.user.value : '',
+          user: both.user && both.user.value ? both.user.value : remembered(),
           password: both.pass.value
         });
       }
@@ -218,13 +266,15 @@ final class FormRelay: NSObject, WKScriptMessageHandler {
       document.addEventListener('keydown', function (e) {
         if (e.key !== 'Enter') return;
         var both = pair();
-        if (both && (document.activeElement === both.pass || document.activeElement === both.user)) offer();
+        if (both ? (document.activeElement === both.pass || document.activeElement === both.user) : lone()) offer();
       }, true);
       // Plenty of sign-in buttons aren't in a form and never fire submit.
       document.addEventListener('click', function (e) {
         var el = e.target;
         if (!el || !el.closest) return;
         if (el.closest('button, input[type="submit"], [role="button"]')) {
+          // The name now: the page may take its box away on this very click.
+          if (!pair()) { var name = loneOnShow(); if (name && name.value) remember(name.value); }
           setTimeout(offer, 0);
         }
       }, true);
@@ -282,7 +332,7 @@ final class FormRelay: NSObject, WKScriptMessageHandler {
         var el = document.activeElement;
         var both = pair();
         var rect = null;
-        if (both && el && (el === both.user || el === both.pass)) {
+        if (el && (both ? (el === both.user || el === both.pass) : el === lone())) {
           var r = el.getBoundingClientRect();
           if (r.width > 0 && r.height > 0) rect = { x: r.left, y: r.top, w: r.width, h: r.height };
         }

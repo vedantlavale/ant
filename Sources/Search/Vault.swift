@@ -116,10 +116,13 @@ enum Vault {
               let data = password.data(using: .utf8)
         else { return false }
 
+        // Ours only: without the label, an update found another app's
+        // password for the same site and name and wrote over it.
         let identity: [String: Any] = [
             kSecClass as String: kSecClassInternetPassword,
             kSecAttrServer as String: host,
             kSecAttrAccount as String: user,
+            kSecAttrLabel as String: label,
         ]
         var fields: [String: Any] = [
             kSecValueData as String: data,
@@ -146,6 +149,7 @@ enum Vault {
             kSecClass as String: kSecClassInternetPassword,
             kSecAttrServer as String: host,
             kSecAttrAccount as String: user,
+            kSecAttrLabel as String: label,
         ] as CFDictionary)
     }
 

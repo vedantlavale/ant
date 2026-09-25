@@ -18,6 +18,9 @@ in [ROADMAP.md](ROADMAP.md).
 
 ### Fixed
 
+- Sign-ins that ask for the name first — Google, Microsoft, Apple — offer your saved accounts under the name box too, and a password saved at the next step is kept under the name you gave, where it used to be kept under none.
+- Saving or forgetting a password only ever touches Search's own keychain items, never another app's for the same site and name.
+- The passkey switch is off and greyed in a build that isn't signed to use passkeys, so sites go straight to the password instead of down a passkey path that can only fail.
 - Downloads with "Ask where to save" on: the Save panel is a sheet on the browser window instead of a loose panel that could open behind it, and "Replace" really replaces — the old file goes to the Bin, where before WebKit refused to write over it and the download failed. A failed download says why, and a finished one is always listed in Downloads.
 - `./build.sh` builds with only the Command Line Tools installed, on the macOS 26 SDK when the macOS 27 one needs Xcode's SwiftUI macros.
 - The tab bar folded away with ⌘S comes back over the page on a ground of its own, as the column does: the page no longer shows through between the tabs, and its shadow falls along the bar's edge instead of from every title and icon.
